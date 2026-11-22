@@ -62,11 +62,66 @@ def Printed.sLocalThetaToHomogeneousProduct_strictlyCoarser_nonclosed : Prop :=
     let P := (exists_sLocalThetaToHomogeneousProduct (F := F) (S := S)).choose
     ¬ IsInducing P ∧ ¬ IsClosed (Set.range P)
 
+/-- At the rational archimedean stage, the two norm-one ideles are both diagonal units. -/
+private theorem sLocalThetaToHomogeneousProduct_normOne_rat :
+    Subsingleton (sIdeleQuotientNorm ℚ ∅).ker := by
+  refine subsingleton_of_forall_eq 1 fun ⟨x, hx⟩ ↦ Subtype.ext ?_
+  change x = 1
+  revert hx
+  refine Quotient.inductionOn x fun g hg ↦ ?_
+  change sIdeleNorm ℚ ∅ g = 1 at hg
+  let j := InfinitePlace.Completion.ringEquivRealOfIsReal Rat.isReal_infinitePlace
+  let e : SAdeleRing ℚ ∅ ≃+* ℝ := ((RingEquiv.prodZeroRing _ _).symm.trans
+    (RingEquiv.piUnique fun w : InfinitePlace ℚ ↦ w.Completion)).trans j
+  have hnorm : |e g.val| = 1 := by
+    trans ‖g.val.1 Rat.infinitePlace‖
+    · exact (InfinitePlace.Completion.isometry_extensionEmbeddingOfIsReal
+        Rat.isReal_infinitePlace).norm_map_of_map_zero (map_zero _) _
+    have h := congrArg (fun t : ℝ≥0ˣ ↦ (t.val : ℝ)) hg
+    rw [sIdeleNorm, Finset.univ_eq_empty (α := (∅ : Finset (HeightOneSpectrum (𝓞 ℚ)))),
+      Finset.prod_empty, mul_one, Fintype.prod_subsingleton _ Rat.infinitePlace,
+      Rat.isReal_infinitePlace.mult_eq_one, pow_one] at h
+    exact h
+  rcases eq_or_eq_neg_of_abs_eq hnorm with h | h
+  · have hg1 : g = 1 := Units.ext (e.injective (h.trans (map_one e).symm))
+    simp [hg1]
+  · have hgneg : g = -1 := Units.ext (e.injective (by simpa using h))
+    refine (sIdeleQuotient_mk_eq_one ℚ ∅ g).2 ⟨-1, ?_⟩
+    apply Units.ext
+    simp [hgneg]
+
+/-- With just the trivial norm-one character, any element of the product is represented
+by a test function in its sole coordinate. Thus the product map has closed range. -/
+private theorem sLocalThetaToHomogeneousProduct_isClosed_of_subsingleton
+    (F : Type) [Field F] [NumberField F]
+    (S : Finset (HeightOneSpectrum (𝓞 F))) (hG : Subsingleton (sIdeleQuotientNorm F S).ker) :
+    IsClosed (Set.range (exists_sLocalThetaToHomogeneousProduct (F := F) (S := S)).choose) := by
+  let P := (exists_sLocalThetaToHomogeneousProduct (F := F) (S := S)).choose
+  suffices hs : Surjective P by
+    exact (congrArg IsClosed hs.range_eq).mpr isClosed_univ
+  let χ₀ : PontryaginDual (sIdeleQuotientNorm F S).ker := 1
+  have hχ (χ : PontryaginDual (sIdeleQuotientNorm F S).ker) : χ = χ₀ := by
+    apply PontryaginDual.ext
+    intro g
+    rw [hG.allEq g 1, map_one, map_one]
+  intro y
+  let K := LinearMap.ker (sLocalHomogeneousAdelicThetaLinearMap F S χ₀)
+  let f := (K.mkQ_surjective (y χ₀)).choose
+  have hf : K.mkQ f = y χ₀ := (K.mkQ_surjective (y χ₀)).choose_spec
+  let x := (sLocalAdelicTheta F S).ker.mkQ f
+  have hx := (exists_sLocalThetaToHomogeneousProduct (F := F) (S := S)).choose_spec.2 f χ₀
+  refine ⟨x, ?_⟩
+  funext χ
+  exact (congrArg (fun i ↦ P x i = y i) (hχ χ)).mpr (hx.trans hf)
+
 /-- Paper: Remark 6.2.1.4(2), p. 298. Take ℚ and the archimedean stage. The norm-one quotient
 is trivial, and projection to the sole factor identifies the product map with the identity on
 the theta quotient. The range is closed and the induced topology is the intrinsic topology. -/
 theorem Printed.sLocalThetaToHomogeneousProduct_strictlyCoarser_nonclosed_false :
-    ¬ Printed.sLocalThetaToHomogeneousProduct_strictlyCoarser_nonclosed := by sorry
+    ¬ Printed.sLocalThetaToHomogeneousProduct_strictlyCoarser_nonclosed := by
+  intro h
+  exact (h ℚ ∅).2 (sLocalThetaToHomogeneousProduct_isClosed_of_subsingleton ℚ ∅
+    sLocalThetaToHomogeneousProduct_normOne_rat)
 
 section StandardFunctions
 
