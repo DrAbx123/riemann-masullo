@@ -1210,6 +1210,90 @@ theorem existsUnique_sLocalDecayToThetaL2 (I : Set ℝ) (_hOpen : IsOpen I)
     ∃! j : Ẽ(I) →L[ℂ] SLocalThetaL2 F S, Injective j ∧ ∀ f : Ẽ(I),
       (((j f).val : L²ₛ) : Jₛ → ℂ) =ᵐ[μweighted] f.val := by sorry
 
+/-- A nonzero discrepancy between two Hilbert-valued maps induces a reflection fixing
+the subspace on which they agree. -/
+private theorem sLocalDecayFourier_eq_weightedFourier_rigid
+    {E H : Type*} [AddCommGroup E] [Module ℂ E] [TopologicalSpace E]
+    [IsTopologicalAddGroup E] [ContinuousSMul ℂ E]
+    [NormedAddCommGroup H] [InnerProductSpace ℂ H]
+    (P : E → Prop) (he : ∀ t : E ≃L[ℂ] E, (∀ x, P x → t x = x) →
+      t = ContinuousLinearEquiv.refl ℂ E)
+    (A B : E →L[ℂ] H) (hAB : ∀ x, P x → A x = B x) : A = B := by
+  ext z
+  by_contra hz
+  let d := A z - B z
+  let l : E →L[ℂ] ℂ := (innerSL ℂ d).comp (A - B)
+  have hl : l z ≠ 0 := inner_self_ne_zero.mpr (sub_ne_zero.mpr hz)
+  let m : E →L[ℂ] ℂ := (l z)⁻¹ • l
+  have hmz : m z = 1 := inv_mul_cancel₀ hl
+  have hmP (x) (hx : P x) : m x = 0 := by simp [m, l, hAB x hx]
+  -- Reflection in the kernel of the discrepancy fixes every generator.
+  let R : E →L[ℂ] E := ContinuousLinearMap.id ℂ E - m.smulRight ((2 : ℂ) • z)
+  have hR (x) : R x = x - m x • ((2 : ℂ) • z) := rfl
+  have hmR (x) : m (R x) = -m x := by
+    rw [hR, map_sub, map_smul, map_smul, hmz]
+    simp only [smul_eq_mul, mul_one]
+    ring
+  have hinv : Function.LeftInverse R R := by
+    intro x
+    rw [hR (R x), hmR, hR, neg_smul, sub_neg_eq_add, sub_add_cancel]
+  let t := ContinuousLinearEquiv.equivOfInverse R R hinv hinv
+  have ht := he t (fun x hx ↦ by change R x = x; rw [hR, hmP x hx, zero_smul, sub_zero])
+  have hfix : R z = z := DFunLike.congr_fun ht z
+  have h := hmR z
+  rw [hfix, hmz] at h
+  norm_num at h
+
+/-- Uniqueness of the equivalence prescribed on test pairs makes those pairs sufficient
+for comparing continuous maps into a common inner product space. -/
+private theorem sLocalDecayFourier_eq_weightedFourier_ext
+    {E E' H T : Type*} [AddCommGroup E] [Module ℂ E] [TopologicalSpace E]
+    [IsTopologicalAddGroup E] [ContinuousSMul ℂ E]
+    [AddCommGroup E'] [Module ℂ E'] [TopologicalSpace E']
+    [NormedAddCommGroup H] [InnerProductSpace ℂ H]
+    (p : T → E → Prop) (q : T → E' → Prop)
+    (U : ∃! e : E ≃L[ℂ] E', ∀ f, ∃ u v, e u = v ∧ p f u ∧ q f v)
+    (A : E →L[ℂ] H) (B : E' →L[ℂ] H)
+    (h : ∀ f u v, p f u → q f v → A u = B v) :
+    ∀ u, A u = B (U.exists.choose u) := by
+  let e := U.exists.choose
+  let P (u : E) := ∃ f, p f u ∧ q f (e u)
+  suffices hmap : A = B.comp e.toContinuousLinearMap from DFunLike.congr_fun hmap
+  apply sLocalDecayFourier_eq_weightedFourier_rigid P
+  · intro t ht
+    have he : t.trans e = e := U.unique (fun f ↦ by
+      obtain ⟨u, v, hu, hp, hq⟩ := U.exists.choose_spec f
+      change e u = v at hu
+      exact ⟨u, v, (congrArg e (ht u ⟨f, hp, hu ▸ hq⟩)).trans hu, hp, hq⟩) U.exists.choose_spec
+    ext u
+    exact e.injective (DFunLike.congr_fun he u)
+  · rintro u ⟨f, hp, hq⟩
+    exact h f u (e u) hp hq
+
+/-- Reflection preserves the interval hypotheses for the weighted embedding. -/
+private theorem sLocalDecayFourier_eq_weightedFourier_reflect (I : Set ℝ) (hOpen : IsOpen I)
+    (hInt : OrdConnected I) (hsub : I ⊆ overlapInterval) (hhalf : (1 / 2 : ℝ) ∈ I) :
+    IsOpen (reflect(I)) ∧ OrdConnected (reflect(I)) ∧ reflect(I) ⊆ overlapInterval ∧
+      (1 / 2 : ℝ) ∈ reflect(I) := by
+  have hopen' : IsOpen (reflect(I)) := hOpen.preimage (continuous_const.sub continuous_id)
+  have hint' : OrdConnected (reflect(I)) := hInt.preimage_anti (fun _ _ h ↦ sub_le_sub_left h 1)
+  have hsub' : reflect(I) ⊆ overlapInterval := by
+    intro x hx
+    obtain ⟨h₁, h₂⟩ := hsub hx
+    exact ⟨by dsimp at h₂; linarith, by dsimp at h₁; linarith⟩
+  have hhalf' : (1 / 2 : ℝ) ∈ reflect(I) := by
+    change 1 - 1 / 2 ∈ I
+    rwa [show (1 - 1 / 2 : ℝ) = 1 / 2 by norm_num]
+  exact ⟨hopen', hint', hsub', hhalf'⟩
+
+/-- On homogeneous theta representatives, Fourier transform in the Hilbert completion
+agrees with the transform of the Schwartz–Bruhat test. -/
+private theorem sLocalDecayFourier_eq_weightedFourier_test (χ : PontryaginDual Jₛ)
+    (f : ℬₛ) (x y : SLocalThetaL2 F S)
+    (hx : ((x.val : L²ₛ) : Jₛ → ℂ) =ᵐ[μweighted] φω(restrict₁(χ)) f)
+    (hy : ((y.val : L²ₛ) : Jₛ → ℂ) =ᵐ[μweighted] φω(restrict₁(χ⁻¹)) (Fourierₛ f)) :
+    weightedFourier x = y := by sorry
+
 /-- Paper: Proposition 5.4.2.1(2), p. 275.
 The unitary Fourier extension agrees on the weighted isotype with the Fourier map
 for the reflected interval, after embedding both functions by their L² classes. -/
@@ -1219,8 +1303,27 @@ theorem sLocalDecayFourier_eq_weightedFourier (χ : PontryaginDual Jₛ) (I : Se
       I hOpen hInt hsub hhalf).exists.choose
     let e := (existsUnique_sLocalDecayFourier (F := F) (S := S) χ I hOpen hInt ⟨_, hhalf⟩ hsub).exists.choose
     ∀ f : Eω(I, restrict₁(χ)),
-      ((((weightedFourier (j f.val)).val : L²ₛ) : Jₛ → ℂ)) =ᵐ[μweighted] (e f).val.val :=
-  by sorry
+      ((((weightedFourier (j f.val)).val : L²ₛ) : Jₛ → ℂ)) =ᵐ[μweighted] (e f).val.val := by
+  classical
+  intro j e
+  let D := sLocalDecayIsotype (F := F) (S := S) I (restrict₁(χ))
+  let D' := sLocalDecayIsotype (F := F) (S := S) (reflect(I)) (restrict₁(χ⁻¹))
+  have hr := sLocalDecayFourier_eq_weightedFourier_reflect I hOpen hInt hsub hhalf
+  have J := existsUnique_sLocalDecayToThetaL2 (F := F) (S := S) (reflect(I)) hr.1 hr.2.1 hr.2.2.1 hr.2.2.2
+  let k := J.exists.choose
+  have hk := J.exists.choose_spec.2
+  let A : D →L[ℂ] SLocalThetaL2 F S := (weightedFourier).toContinuousLinearEquiv.toContinuousLinearMap.comp (j.comp D.subtypeL)
+  let B : D' →L[ℂ] SLocalThetaL2 F S := k.comp D'.subtypeL
+  let p (f : ℬₛ) (u : D) := ∀ g : Jₛ, u.val.val g = φω(restrict₁(χ)) f g
+  let q (f : ℬₛ) (v : D') := ∀ g : Jₛ, v.val.val g = φω(restrict₁(χ⁻¹)) (Fourierₛ f) g
+  have U := existsUnique_sLocalDecayFourier (F := F) (S := S) χ I hOpen hInt ⟨_, hhalf⟩ hsub
+  have hAB : ∀ u : D, A u = B (e u) := sLocalDecayFourier_eq_weightedFourier_ext p q U A B (fun f u v hu hv ↦
+    sLocalDecayFourier_eq_weightedFourier_test χ f (j u.val) (k v.val)
+      (((existsUnique_sLocalDecayToThetaL2 (F := F) (S := S) I hOpen hInt hsub hhalf).exists.choose_spec.2 _).trans
+        (ae_of_all _ hu)) ((hk _).trans (ae_of_all _ hv)))
+  intro u
+  exact (congrArg (fun x : SLocalThetaL2 F S ↦ ((x.val : L²ₛ) : Jₛ → ℂ))
+    (hAB u)).eventuallyEq.trans (hk _)
 
 /-- A modulated decay space with a norm section maps continuously to the decay space of the
 positive reals by restriction to the section, and back by tensoring with the conjugate of a
