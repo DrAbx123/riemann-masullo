@@ -6,7 +6,7 @@ sources we expect to draw on.
 | Directory | Upstream | License | Status |
 |---|---|---|---|
 | [`PrimeNumberTheoremAnd/`](PrimeNumberTheoremAnd/) | <https://github.com/AlexKontorovich/PrimeNumberTheoremAnd> | Apache-2.0 | vendored at `a4fb698`: `StrongPNT.lean` (general part: Borel–Carathéodory, Blaschke products, Landau's bound for logarithmic derivatives) |
-| [`TauCeti/`](TauCeti/) | <https://github.com/TauCetiProject/TauCeti> | Apache-2.0 | planned (selected modules) |
+| [`TauCeti/`](TauCeti/) | <https://github.com/TauCetiProject/TauCeti> | Apache-2.0 | vendored at `8794ab3` for Montel's subsequence theorem in §1.4.3 |
 | [`Stacks/`](Stacks/) | <https://github.com/AxiomMath/Stacks> | Apache-2.0 | under consideration |
 
 Further candidates found by scouting ([issue #3](https://github.com/mccorvie/riemann-masullo/issues/3)
